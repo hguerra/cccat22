@@ -1,14 +1,4 @@
 services:
-  backend:
-    build:
-      context: .
-    volumes:
-      - ..:/app
-    ports:
-      - 3000:3000
-    working_dir: /app
-    command: sleep infinity
-    stop_grace_period: 2s
   db:
     image: postgres:17-alpine
     ports:
