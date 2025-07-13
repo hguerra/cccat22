@@ -23,6 +23,45 @@ function validatePassword(password?: string, minSize = 8): boolean {
   return true;
 }
 
+async function findAccountById(accountId: string) {
+  const rows = await connection.query(
+    `
+  select
+    acc.account_id account__account_id,
+    acc.name account__name,
+    acc.email account__email,
+    acc.document account__document,
+    acc.password account__password,
+    ass.asset_id asset__asset_id,
+    ass.quantity asset__quantity
+  from ccca.account acc
+    left join ccca.account_asset ass on acc.account_id = ass.account_id
+  where acc.account_id = $1
+  order by acc.account_id, ass.asset_id`,
+    [accountId],
+  );
+
+  if (!rows || !rows.length) {
+    return null;
+  }
+
+  const firstRow = rows[0];
+  return {
+    accountId,
+    name: firstRow["account__name"],
+    email: firstRow["account__email"],
+    document: firstRow["account__document"],
+    password: firstRow["account__password"],
+    assets: [
+      ...new Set(
+        rows
+          .filter((row: any) => row["asset__asset_id"])
+          .map((row: any) => ({ assetId: row["asset__asset_id"], quantity: row["asset__quantity"] })),
+      ),
+    ],
+  };
+}
+
 app.post("/signup", async (req: Request, res: Response) => {
   const account = req.body;
   console.log("/signup", account);
@@ -96,7 +135,7 @@ app.post("/signup", async (req: Request, res: Response) => {
 app.get("/accounts/:accountId", async (req: Request, res: Response) => {
   const accountId = req.params.accountId;
   console.log(`/accounts/${accountId}`);
-  const [account] = await connection.query("select * from ccca.account where account_id = $1", [accountId]);
+  const account = await findAccountById(accountId);
   if (!account) {
     res.status(404);
     res.json({
@@ -104,8 +143,31 @@ app.get("/accounts/:accountId", async (req: Request, res: Response) => {
       title: "Conta não encontrada",
       detail: "A conta não foi encontrada.",
     });
+    return;
   }
   res.json(account);
+});
+
+app.post("/deposit", async (req: Request, res: Response) => {
+  console.log("/deposit", req.body);
+
+  const account = await findAccountById(req.body.accountId);
+  if (!account) {
+    res.status(404);
+    res.json({
+      type: "not-found-error",
+      title: "Conta não encontrada",
+      detail: "A conta não foi encontrada.",
+    });
+    return;
+  }
+
+  // TODO
+  res.json(account);
+});
+
+app.post("/withdraw", async (req: Request, res: Response) => {
+  console.log("/withdraw", req.body);
 });
 
 app.listen(3000);
